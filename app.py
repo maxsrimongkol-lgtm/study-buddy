@@ -97,4 +97,51 @@ if not st.session_state.sessions.empty:
 else:
     st.info("📍 No active sessions. Be the first to start one below!")
 
-# ---
+# --- THE POSTING SECTION ---
+st.markdown("---")
+with st.form("main_form", clear_on_submit=True):
+    st.subheader("🚀 Create a Study Session")
+    
+    # Grid Layout for inputs
+    c1, c2 = st.columns(2)
+    with c1: course = st.text_input("Course Code (e.g., WRIT 150)")
+    with c2: location = st.text_input("Location (e.g., Leavey Basement)")
+    
+    st.markdown("**When are you studying?**")
+    d_col, t1_col, t2_col = st.columns([2, 1, 1])
+    with d_col: study_date = st.date_input("Date", label_visibility="collapsed")
+    with t1_col: start_t = st.time_input("Start Time", label_visibility="collapsed")
+    with t2_col: end_t = st.time_input("End Time", value=(now + timedelta(hours=2)).time(), label_visibility="collapsed")
+
+    vibe = st.text_input("Session Vibe (e.g., No Talking, Group Discussion)")
+    user_key = st.text_input("Secret Key (to delete)", type="password")
+    desc = st.text_area("What are you working on? (Optional)")
+
+    # The Big Red/Gold Button
+    if st.form_submit_button("Post to USC Map"):
+        if course and location and vibe and user_key:
+            fs, fe = datetime.combine(study_date, start_t), datetime.combine(study_date, end_t)
+            if fe > fs:
+                lat, lon = get_coords(location)
+                new_row = pd.DataFrame([{'Course': course.upper(), 'Location': location, 'Vibe': vibe, 'Description': desc, 'Start_Time': fs, 'End_Time': fe, 'Key': user_key, 'Joins': 0, 'lat': lat, 'lon': lon}])
+                st.session_state.sessions = pd.concat([st.session_state.sessions, new_row], ignore_index=True)
+                st.rerun()
+
+# --- ACTIVE FEED ---
+st.markdown("### 🤝 Join a Session")
+if st.session_state.sessions.empty:
+    st.write("_Check back later for active groups._")
+
+for i, row in st.session_state.sessions.iterrows():
+    s_time = row['Start_Time'].strftime('%I:%M %p')
+    e_time = row['End_Time'].strftime('%I:%M %p')
+    
+    with st.expander(f"📖 {row['Course']} @ {row['Location']} ({s_time} - {e_time})"):
+        st.write(f"**Vibe:** {row['Vibe']}")
+        if row['Description']: st.info(row['Description'])
+        
+        # Consistent Join Button
+        if st.button(f"Join Group • {row['Joins']} attending", key=f"join_{i}"):
+            st.session_state.sessions.at[i, 'Joins'] += 1
+            st.balloons()
+            st.rerun()
