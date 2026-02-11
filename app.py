@@ -5,18 +5,12 @@ from datetime import datetime, timedelta
 # --- USC BRANDING & UI UNIFICATION ---
 st.set_page_config(page_title="USC Study Buddy", page_icon="✌️", layout="centered")
 
-# UNIVERSAL CSS: Fixing button contrast and box styling
+# UNIVERSAL CSS
 st.markdown("""
     <style>
     /* 1. Page Background & Text */
     .stApp { background-color: #FFFFFF !important; }
     h1, h2, h3, p, label { color: #000000 !important; font-weight: 800 !important; }
-    
-    /* Ensure input labels are visible and black */
-    .stMarkdown p, .stSelectbox label, .stTextInput label, .stDateInput label, .stTimeInput label {
-        color: #000000 !important;
-        font-weight: bold !important;
-    }
 
     /* 2. UNIVERSAL BOX STYLE: White background, 2px Cardinal Red border */
     div[data-baseweb="input"], 
@@ -27,29 +21,33 @@ st.markdown("""
         color: #000000 !important;
         border: 2px solid #990000 !important;
         border-radius: 4px !important;
-        -webkit-text-fill-color: #000000 !important;
     }
 
-    /* 3. MAIN POST BUTTON: High Contrast (Cardinal Red + White Text) */
-    div.stButton > button[kind="primary"], .stForm div.stButton > button {
-        background-color: #990000 !important;
-        color: #FFFFFF !important;
-        border: 2px solid #990000 !important;
-        border-radius: 8px !important;
-        height: 3.5em !important;
-        width: 100% !important;
-        font-size: 18px !important;
-        font-weight: bold !important;
-        text-transform: uppercase;
-        display: block;
-        opacity: 1 !important;
+    /* 3. BIG CENTERED RED & GOLD BUTTON */
+    /* This targets the submit button specifically */
+    .stForm div.stButton {
+        display: flex;
+        justify-content: center;
     }
-    
-    /* 4. JOIN BUTTONS: Secondary Style (White background + Dark Text) */
-    div.stButton > button {
-        background-color: #f0f2f6;
-        color: #31333F;
-        border: 1px solid #d3d3d3;
+
+    .stForm div.stButton > button {
+        background: linear-gradient(90deg, #990000 0%, #FFCC00 100%) !important;
+        color: #FFFFFF !important;
+        border: 2px solid #FFCC00 !important;
+        border-radius: 12px !important;
+        height: 4em !important;
+        width: 80% !important;
+        font-size: 24px !important;
+        font-weight: 900 !important;
+        text-transform: uppercase;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.2) !important;
+        margin-top: 20px;
+    }
+
+    .stForm div.stButton > button:hover {
+        border: 2px solid #990000 !important;
+        color: #990000 !important;
+        background: #FFFFFF !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -89,34 +87,45 @@ else:
 
 # --- FORM SECTION ---
 with st.form("main_form", clear_on_submit=True):
-    st.subheader("🚀 Post a Session")
+    st.subheader("🚀 Schedule Session")
     
-    course = st.text_input("Course Code (e.g., BUAD 304)*")
-    location = st.text_input("Location (e.g., Fertitta Hall)*")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        course = st.text_input("Course Code*")
+    with col_b:
+        location = st.text_input("Location*")
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        study_date = st.date_input("Date*")
-    with col2:
-        # Time input widgets default to system format, but display logic below uses AM/PM
-        start_t = st.time_input("Start Time*")
-    with col3:
-        end_t = st.time_input("End Time*", value=(now + timedelta(hours=2)))
+    # CALENDAR RANGE PICKER: Simulates Google Calendar "Slot" Selection
+    st.markdown("**Select Date and Time Range***")
+    time_range = st.date_input(
+        "Select your study window",
+        value=(now, now + timedelta(hours=3)),
+        help="Select start and end dates/times"
+    )
+    
+    t_col1, t_col2 = st.columns(2)
+    with t_col1:
+        start_t = st.time_input("From", value=now.time())
+    with t_col2:
+        end_t = st.time_input("To", value=(now + timedelta(hours=2)).time())
 
-    v_col, k_col = st.columns(2)
-    with v_col:
-        vibe = st.selectbox("Vibe*", options=["Chill", "Cramming", "Group Project"])
-    with k_col:
-        user_key = st.text_input("Secret Key (to delete later)*", type="password")
-
+    # VIBE IS NOW A TEXT BOX
+    vibe = st.text_input("Vibe (e.g., Silent Cramming, Collaborative)*")
+    
+    user_key = st.text_input("Secret Key (to delete later)*", type="password")
     desc = st.text_area("Description (Optional)")
 
-    # The Submit Button
+    # THE BIG RED & GOLD BUTTON
     submit = st.form_submit_button("Post to USC Map")
+    
     if submit:
-        if course and location and user_key:
-            fs = datetime.combine(study_date, start_t)
-            fe = datetime.combine(study_date, end_t)
+        if course and location and vibe and user_key:
+            # Handle date input (could be a single date or a range)
+            actual_date = time_range[0] if isinstance(time_range, tuple) else time_range
+            
+            fs = datetime.combine(actual_date, start_t)
+            fe = datetime.combine(actual_date, end_t)
+            
             if fe > fs:
                 lat, lon = get_coords(location)
                 new_row = {
@@ -126,13 +135,14 @@ with st.form("main_form", clear_on_submit=True):
                 }
                 st.session_state.sessions = pd.concat([st.session_state.sessions, pd.DataFrame([new_row])], ignore_index=True)
                 st.rerun()
+            else:
+                st.error("End time must be after start time!")
 
 # --- ACTIVE SESSIONS ---
 st.write("---")
 st.subheader("🤝 Active Sessions")
 
 for i, row in st.session_state.sessions.iterrows():
-    # TIME FORMATTING: Forcing 1-12 AM/PM Format
     s_str = row['Start_Time'].strftime('%I:%M %p')
     e_str = row['End_Time'].strftime('%I:%M %p')
     
