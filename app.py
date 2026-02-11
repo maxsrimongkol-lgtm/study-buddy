@@ -2,17 +2,24 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# --- USC BRANDING & UI UNIFICATION ---
+# --- USC BRANDING & GLOBAL LIGHT-MODE RESET ---
 st.set_page_config(page_title="USC Study Buddy", page_icon="✌️", layout="centered")
 
-# UNIVERSAL CSS
 st.markdown("""
     <style>
-    /* 1. Page Background & Text */
-    .stApp { background-color: #FFFFFF !important; }
-    h1, h2, h3, p, label { color: #000000 !important; font-weight: 800 !important; }
+    /* 1. FORCE GLOBAL LIGHT MODE */
+    /* This targets the main app container and every sub-container */
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stToolbar"] {
+        background-color: #FFFFFF !important;
+    }
+    
+    /* 2. FORCE BLACK TEXT EVERYWHERE */
+    h1, h2, h3, p, label, span, li, div {
+        color: #000000 !important;
+        font-weight: 700 !important;
+    }
 
-    /* 2. UNIVERSAL BOX STYLE: White background, 2px Cardinal Red border */
+    /* 3. INPUT BOXES: White with 2px Red Border */
     div[data-baseweb="input"], 
     div[data-baseweb="select"], 
     div[data-baseweb="base-input"],
@@ -21,10 +28,13 @@ st.markdown("""
         color: #000000 !important;
         border: 2px solid #990000 !important;
         border-radius: 4px !important;
+        -webkit-text-fill-color: #000000 !important;
     }
-
-    /* 3. BIG CENTERED RED & GOLD BUTTON */
-    /* This targets the submit button specifically */
+    
+    /* Fix for date/time picker dropdown icons and text */
+    div[data-baseweb="calendar"] { background-color: #FFFFFF !important; }
+    
+    /* 4. THE BIG CENTERED RED & GOLD BUTTON */
     .stForm div.stButton {
         display: flex;
         justify-content: center;
@@ -40,14 +50,21 @@ st.markdown("""
         font-size: 24px !important;
         font-weight: 900 !important;
         text-transform: uppercase;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.2) !important;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.1) !important;
         margin-top: 20px;
     }
 
-    .stForm div.stButton > button:hover {
-        border: 2px solid #990000 !important;
+    /* 5. JOIN BUTTONS: Light Grey/White to prevent "Dark Parts" */
+    [data-testid="stExpander"] div.stButton > button {
+        background-color: #f8f9fa !important;
         color: #990000 !important;
-        background: #FFFFFF !important;
+        border: 1px solid #990000 !important;
+    }
+    
+    /* Remove any dark hover states */
+    button:hover {
+        opacity: 0.8 !important;
+        color: #990000 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -95,37 +112,25 @@ with st.form("main_form", clear_on_submit=True):
     with col_b:
         location = st.text_input("Location*")
     
-    # CALENDAR RANGE PICKER: Simulates Google Calendar "Slot" Selection
-    st.markdown("**Select Date and Time Range***")
-    time_range = st.date_input(
-        "Select your study window",
-        value=(now, now + timedelta(hours=3)),
-        help="Select start and end dates/times"
-    )
-    
-    t_col1, t_col2 = st.columns(2)
-    with t_col1:
-        start_t = st.time_input("From", value=now.time())
-    with t_col2:
-        end_t = st.time_input("To", value=(now + timedelta(hours=2)).time())
+    st.markdown("**Study Date & Time Range***")
+    date_col, t1_col, t2_col = st.columns([2, 1, 1])
+    with date_col:
+        study_date = st.date_input("Select Date", label_visibility="collapsed")
+    with t1_col:
+        start_t = st.time_input("Start", value=now.time(), label_visibility="collapsed")
+    with t2_col:
+        end_t = st.time_input("End", value=(now + timedelta(hours=2)).time(), label_visibility="collapsed")
 
-    # VIBE IS NOW A TEXT BOX
     vibe = st.text_input("Vibe (e.g., Silent Cramming, Collaborative)*")
-    
     user_key = st.text_input("Secret Key (to delete later)*", type="password")
     desc = st.text_area("Description (Optional)")
 
-    # THE BIG RED & GOLD BUTTON
     submit = st.form_submit_button("Post to USC Map")
     
     if submit:
         if course and location and vibe and user_key:
-            # Handle date input (could be a single date or a range)
-            actual_date = time_range[0] if isinstance(time_range, tuple) else time_range
-            
-            fs = datetime.combine(actual_date, start_t)
-            fe = datetime.combine(actual_date, end_t)
-            
+            fs = datetime.combine(study_date, start_t)
+            fe = datetime.combine(study_date, end_t)
             if fe > fs:
                 lat, lon = get_coords(location)
                 new_row = {
@@ -135,8 +140,6 @@ with st.form("main_form", clear_on_submit=True):
                 }
                 st.session_state.sessions = pd.concat([st.session_state.sessions, pd.DataFrame([new_row])], ignore_index=True)
                 st.rerun()
-            else:
-                st.error("End time must be after start time!")
 
 # --- ACTIVE SESSIONS ---
 st.write("---")
