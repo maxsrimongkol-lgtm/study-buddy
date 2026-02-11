@@ -2,69 +2,68 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# --- USC BRANDING & GLOBAL LIGHT-MODE RESET ---
+# --- USC BRANDING & TOTAL UI RESET ---
 st.set_page_config(page_title="USC Study Buddy", page_icon="✌️", layout="centered")
 
+# This CSS is designed to override "Dark Mode" at the root level
 st.markdown("""
     <style>
-    /* 1. FORCE GLOBAL LIGHT MODE */
-    /* This targets the main app container and every sub-container */
-    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stToolbar"] {
+    /* 1. Global Reset: Everything white and black */
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         background-color: #FFFFFF !important;
     }
     
-    /* 2. FORCE BLACK TEXT EVERYWHERE */
-    h1, h2, h3, p, label, span, li, div {
-        color: #000000 !important;
-        font-weight: 700 !important;
-    }
-
-    /* 3. INPUT BOXES: White with 2px Red Border */
-    div[data-baseweb="input"], 
-    div[data-baseweb="select"], 
-    div[data-baseweb="base-input"],
-    textarea, input {
+    /* 2. Unified Input Styling: Force consistency across ALL boxes */
+    /* This targets text, date, time, and text-area simultaneously */
+    input, div[data-baseweb="input"], div[data-baseweb="base-input"], textarea, .stSelectbox div {
         background-color: #FFFFFF !important;
         color: #000000 !important;
         border: 2px solid #990000 !important;
         border-radius: 4px !important;
         -webkit-text-fill-color: #000000 !important;
+        box-shadow: none !important;
     }
-    
-    /* Fix for date/time picker dropdown icons and text */
-    div[data-baseweb="calendar"] { background-color: #FFFFFF !important; }
-    
-    /* 4. THE BIG CENTERED RED & GOLD BUTTON */
+
+    /* Fix labels to be high-contrast black */
+    label, p, h3, [data-testid="stMarkdownContainer"] p {
+        color: #000000 !important;
+        font-weight: 800 !important;
+    }
+
+    /* 3. The Post Button: Vivid Red & Gold */
+    /* Center-aligned, high-contrast, no 'dark' shadows */
     .stForm div.stButton {
         display: flex;
         justify-content: center;
     }
 
     .stForm div.stButton > button {
-        background: linear-gradient(90deg, #990000 0%, #FFCC00 100%) !important;
-        color: #FFFFFF !important;
-        border: 2px solid #FFCC00 !important;
-        border-radius: 12px !important;
-        height: 4em !important;
-        width: 80% !important;
-        font-size: 24px !important;
+        background: #990000 !important; /* Cardinal Base */
+        color: #FFCC00 !important; /* Gold Text */
+        border: 4px solid #FFCC00 !important; /* Gold Border */
+        border-radius: 10px !important;
+        height: 3.5em !important;
+        width: 100% !important;
+        font-size: 22px !important;
         font-weight: 900 !important;
         text-transform: uppercase;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.1) !important;
         margin-top: 20px;
+        opacity: 1 !important;
     }
 
-    /* 5. JOIN BUTTONS: Light Grey/White to prevent "Dark Parts" */
+    /* 4. The Join Button: Clean and Consistent */
     [data-testid="stExpander"] div.stButton > button {
-        background-color: #f8f9fa !important;
+        background-color: #FFFFFF !important;
         color: #990000 !important;
-        border: 1px solid #990000 !important;
+        border: 2px solid #990000 !important;
+        border-radius: 5px !important;
+        width: auto !important;
+        padding: 0px 20px !important;
     }
-    
-    /* Remove any dark hover states */
-    button:hover {
-        opacity: 0.8 !important;
-        color: #990000 !important;
+
+    /* 5. Hide the dark 'decoration' line at the top */
+    [data-testid="stDecoration"] {
+        display: none;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -82,79 +81,61 @@ def get_coords(loc_text):
         if key in text: return coords[0], coords[1]
     return 34.0205, -118.2856
 
-# --- DATA INITIALIZATION ---
+# --- DATA ---
 if 'sessions' not in st.session_state:
-    st.session_state.sessions = pd.DataFrame(columns=[
-        'Course', 'Location', 'Vibe', 'Description', 'Start_Time', 'End_Time', 'Key', 'Joins', 'lat', 'lon'
-    ])
+    st.session_state.sessions = pd.DataFrame(columns=['Course', 'Location', 'Vibe', 'Description', 'Start_Time', 'End_Time', 'Key', 'Joins', 'lat', 'lon'])
 
 now = datetime.now()
 st.session_state.sessions = st.session_state.sessions[st.session_state.sessions['End_Time'] > now].reset_index(drop=True)
 
-# --- APP UI ---
+# --- UI ---
 st.title("✌️ USC Study Buddy")
 st.write(f"Current Time: **{now.strftime('%I:%M %p')}**")
 
-# --- MAP SECTION ---
-st.subheader("📍 Live Campus Map")
 if not st.session_state.sessions.empty:
     st.map(st.session_state.sessions[['lat', 'lon']])
-else:
-    st.info("No active sessions on the map.")
 
-# --- FORM SECTION ---
+# --- SCHEDULING FORM ---
 with st.form("main_form", clear_on_submit=True):
     st.subheader("🚀 Schedule Session")
     
-    col_a, col_b = st.columns(2)
-    with col_a:
+    col1, col2 = st.columns(2)
+    with col1:
         course = st.text_input("Course Code*")
-    with col_b:
-        location = st.text_input("Location*")
+    with col2:
+        location = st.text_input("Location (Building Name)*")
     
-    st.markdown("**Study Date & Time Range***")
-    date_col, t1_col, t2_col = st.columns([2, 1, 1])
-    with date_col:
-        study_date = st.date_input("Select Date", label_visibility="collapsed")
+    st.write("Study Window")
+    # Date, Start, and End on one line to keep borders tight and consistent
+    d_col, t1_col, t2_col = st.columns([2, 1, 1])
+    with d_col:
+        study_date = st.date_input("Date")
     with t1_col:
-        start_t = st.time_input("Start", value=now.time(), label_visibility="collapsed")
+        start_t = st.time_input("Start")
     with t2_col:
-        end_t = st.time_input("End", value=(now + timedelta(hours=2)).time(), label_visibility="collapsed")
+        end_t = st.time_input("End", value=(now + timedelta(hours=2)).time())
 
-    vibe = st.text_input("Vibe (e.g., Silent Cramming, Collaborative)*")
-    user_key = st.text_input("Secret Key (to delete later)*", type="password")
+    vibe = st.text_input("Vibe (e.g., Silent Grinding)*")
+    user_key = st.text_input("Secret Key*", type="password")
     desc = st.text_area("Description (Optional)")
 
-    submit = st.form_submit_button("Post to USC Map")
-    
-    if submit:
+    if st.form_submit_button("Post to USC Map"):
         if course and location and vibe and user_key:
-            fs = datetime.combine(study_date, start_t)
-            fe = datetime.combine(study_date, end_t)
+            fs, fe = datetime.combine(study_date, start_t), datetime.combine(study_date, end_t)
             if fe > fs:
                 lat, lon = get_coords(location)
-                new_row = {
-                    'Course': course.upper(), 'Location': location, 'Vibe': vibe, 
-                    'Description': desc, 'Start_Time': fs, 'End_Time': fe, 
-                    'Key': user_key, 'Joins': 0, 'lat': lat, 'lon': lon
-                }
-                st.session_state.sessions = pd.concat([st.session_state.sessions, pd.DataFrame([new_row])], ignore_index=True)
+                new_row = pd.DataFrame([{'Course': course.upper(), 'Location': location, 'Vibe': vibe, 'Description': desc, 'Start_Time': fs, 'End_Time': fe, 'Key': user_key, 'Joins': 0, 'lat': lat, 'lon': lon}])
+                st.session_state.sessions = pd.concat([st.session_state.sessions, new_row], ignore_index=True)
                 st.rerun()
 
-# --- ACTIVE SESSIONS ---
+# --- ACTIVE FEED ---
 st.write("---")
 st.subheader("🤝 Active Sessions")
-
 for i, row in st.session_state.sessions.iterrows():
-    s_str = row['Start_Time'].strftime('%I:%M %p')
-    e_str = row['End_Time'].strftime('%I:%M %p')
-    
-    with st.expander(f"📖 {row['Course']} @ {row['Location']} ({s_str} - {e_str})"):
+    with st.expander(f"📖 {row['Course']} @ {row['Location']} ({row['Start_Time'].strftime('%I:%M %p')} - {row['End_Time'].strftime('%I:%M %p')})"):
         st.write(f"**Vibe:** {row['Vibe']}")
-        if row['Description']: st.write(f"_{row['Description']}_")
-        
-        join_label = f"Join Group ({row['Joins']} attending)"
-        if st.button(join_label, key=f"join_{i}"):
+        if st.button(f"Join Group ({row['Joins']} attending)", key=f"j_{i}"):
             st.session_state.sessions.at[i, 'Joins'] += 1
             st.balloons()
             st.rerun()
+            
