@@ -2,78 +2,68 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# --- USC BRANDING & NUCLEAR UI RESET ---
+# --- USC BRANDING & UI OVERHAUL ---
 st.set_page_config(page_title="USC Study Buddy", page_icon="✌️", layout="centered")
 
-# This CSS targets the root levels to force light mode and consistent borders
 st.markdown("""
     <style>
-    /* 1. FORCE GLOBAL LIGHT MODE - Root Level */
-    :root {
-        --primary-color: #990000;
-        --background-color: #FFFFFF;
-        --secondary-background-color: #FFFFFF;
-        --text-color: #000000;
+    /* 1. THE FOUNDATION: Clean White & Black */
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background-color: #FFFFFF !important;
+    }
+    
+    /* 2. REMOVE FORM SHADOWS: Makes the UI feel like a seamless app */
+    [data-testid="stForm"] {
+        border: none !important;
+        padding: 0px !important;
+        background-color: #FFFFFF !important;
     }
 
-    /* Target the main containers specifically to kill darkness */
-    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stForm"] {
+    /* 3. UNIFIED INPUTS: 2px Cardinal Red Borders, No Grey Backgrounds */
+    div[data-baseweb="input"], div[data-baseweb="base-input"], textarea, input {
         background-color: #FFFFFF !important;
-        color: #000000 !important;
-    }
-
-    /* 2. UNIFIED INPUT BORDERS & BACKGROUNDS */
-    /* This targets the 'BaseWeb' wrappers that Streamlit uses for Date/Time/Text */
-    div[data-baseweb="input"], 
-    div[data-baseweb="base-input"], 
-    div[data-baseweb="select"],
-    input, textarea {
-        background-color: #FFFFFF !important;
-        border: 2px solid #990000 !important; /* Force the 2px USC Red border */
-        border-radius: 4px !important;
+        border: 2px solid #990000 !important;
+        border-radius: 8px !important;
         color: #000000 !important;
         -webkit-text-fill-color: #000000 !important;
-        opacity: 1 !important;
     }
-
-    /* Fix labels and Markdown text to stay black and bold */
-    label, p, h1, h2, h3, span {
+    
+    /* Force Labels to be Bold & Black */
+    label, p, h1, h2, h3 {
         color: #000000 !important;
-        font-weight: 700 !important;
+        font-family: 'Inter', sans-serif;
     }
 
-    /* 3. THE POST BUTTON: Center, Big, Red and Gold */
-    /* We use the 'kind' selector to ensure we hit the form button */
-    [data-testid="stForm"] .stButton button {
-        background-color: #990000 !important; /* Cardinal Red */
-        color: #FFCC00 !important; /* USC Gold Text */
+    /* 4. THE POST BUTTON: Big, Centered, Red/Gold */
+    .stButton button[kind="primaryFormSubmit"] {
+        background: #990000 !important; /* Cardinal Red */
+        color: #FFCC00 !important; /* Gold Text */
         border: 3px solid #FFCC00 !important; /* Gold Border */
-        border-radius: 12px !important;
+        border-radius: 50px !important; /* Rounded pill shape */
         width: 100% !important;
-        height: 4em !important;
-        font-size: 24px !important;
+        height: 3.5em !important;
+        font-size: 22px !important;
         font-weight: 900 !important;
-        text-transform: uppercase;
-        box-shadow: none !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
+        letter-spacing: 1px;
+        box-shadow: 0px 4px 10px rgba(153, 0, 0, 0.2) !important;
+        transition: 0.3s;
+    }
+    
+    .stButton button[kind="primaryFormSubmit"]:hover {
+        transform: scale(1.02);
+        background: #7a0000 !important;
     }
 
-    /* 4. THE JOIN BUTTON: Consistent but lighter */
-    [data-testid="stExpander"] .stButton button {
-        background-color: #FFFFFF !important;
-        color: #990000 !important;
-        border: 2px solid #990000 !important;
-        border-radius: 6px !important;
+    /* 5. ACTIVE SESSIONS: Clean Light Cards */
+    [data-testid="stExpander"] {
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 12px !important;
+        background-color: #fafafa !important;
+        margin-bottom: 10px !important;
     }
 
-    /* Kill the dark hover effect that makes things look muddy */
-    button:hover {
-        background-color: #FFCC00 !important;
-        color: #990000 !important;
-        border-color: #990000 !important;
-    }
+    /* 6. HIDE DECORATION */
+    [data-testid="stDecoration"] { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -90,65 +80,21 @@ def get_coords(loc_text):
         if key in text: return coords[0], coords[1]
     return 34.0205, -118.2856
 
-# --- DATA ---
+# --- DATA PERSISTENCE ---
 if 'sessions' not in st.session_state:
     st.session_state.sessions = pd.DataFrame(columns=['Course', 'Location', 'Vibe', 'Description', 'Start_Time', 'End_Time', 'Key', 'Joins', 'lat', 'lon'])
 
 now = datetime.now()
 st.session_state.sessions = st.session_state.sessions[st.session_state.sessions['End_Time'] > now].reset_index(drop=True)
 
-# --- APP UI ---
+# --- HEADER ---
 st.title("✌️ USC Study Buddy")
-st.write(f"Current Time: **{now.strftime('%I:%M %p')}**")
+st.caption(f"Current Time: {now.strftime('%I:%M %p')} • University of Southern California")
 
+# --- MAP (Visible only if active) ---
 if not st.session_state.sessions.empty:
-    st.map(st.session_state.sessions[['lat', 'lon']])
+    st.map(st.session_state.sessions[['lat', 'lon']], zoom=14)
+else:
+    st.info("📍 No active sessions. Be the first to start one below!")
 
-# --- FORM ---
-with st.form("main_form", clear_on_submit=True):
-    st.subheader("🚀 Post a Session")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        course = st.text_input("Course Code*")
-    with col2:
-        location = st.text_input("Location (Building Name)*")
-    
-    st.write("Study Window")
-    # Using 3 columns for better alignment and consistent 2px borders
-    d_col, t1_col, t2_col = st.columns([2, 1, 1])
-    with d_col:
-        study_date = st.date_input("Date")
-    with t1_col:
-        start_t = st.time_input("Start")
-    with t2_col:
-        end_t = st.time_input("End", value=(now + timedelta(hours=2)).time())
-
-    vibe = st.text_input("Vibe (e.g., Chill, Group Work)*")
-    user_key = st.text_input("Secret Key*", type="password")
-    desc = st.text_area("Description (Optional)")
-
-    # The Big Red/Gold Button
-    st.form_submit_button("Post to USC Map")
-
-# --- FORM PROCESSING ---
-# Processing outside the 'with' block for better reliability
-if course and location and vibe and user_key:
-    # This logic only triggers on rerun via the submit button
-    pass 
-
-# Logic for data entry (Simplified for reliability)
-# (Same as before but ensures we don't duplicate state)
-
-# --- FEED ---
-st.write("---")
-for i, row in st.session_state.sessions.iterrows():
-    s_str = row['Start_Time'].strftime('%I:%M %p')
-    e_str = row['End_Time'].strftime('%I:%M %p')
-    with st.expander(f"📖 {row['Course']} @ {row['Location']} ({s_str} - {e_str})"):
-        st.write(f"**Vibe:** {row['Vibe']}")
-        if st.button(f"Join Group ({row['Joins']} attending)", key=f"j_{i}"):
-            st.session_state.sessions.at[i, 'Joins'] += 1
-            st.balloons()
-            st.rerun()
-            
+# ---
